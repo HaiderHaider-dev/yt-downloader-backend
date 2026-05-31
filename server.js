@@ -1,68 +1,45 @@
 const express = require('express');
 const cors = require('cors');
-const ytdl = require('@distube/ytdl-core');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-
-ffmpeg.setFfmpegPath(ffmpegPath);
+const play = require('play-dl');
 
 const app = express();
 app.use(cors());
 
-// The Clean API Endpoint
+// The Stealth API Endpoint
 app.get('/api/download', async (req, res) => {
     const videoURL = req.query.url;
 
-    if (!ytdl.validateURL(videoURL)) {
+    if (!videoURL) {
         return res.status(400).send("Arey bhai, pehle sahi link toh daal!");
     }
 
     try {
-        // 🔥 NAYA HACK: Exact Chrome Headers bina kisi Cookie (Agent) ke!
-        const requestOptions = {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9'
-            }
-        };
+        console.log(`Stealth Extraction Started for: ${videoURL}`);
 
-        const info = await ytdl.getInfo(videoURL, { requestOptions });
-        const title = info.videoDetails.title.replace(/[^\w\s]/gi, ''); 
+        // play-dl bypasses bot checks to get real video info
+        const info = await play.video_info(videoURL);
+        const title = info.video_details.title.replace(/[^\w\s]/gi, ''); 
 
-        res.header('Content-Disposition', `attachment; filename="${title}_1080p.mp4"`);
+        res.header('Content-Disposition', `attachment; filename="${title}_Premium.mp4"`);
         res.header('Content-Type', 'video/mp4');
 
-        console.log(`Downloading started for: ${title}`);
+        // Fetching the unblockable stream (usually 720p with merged audio directly!)
+        const stream = await play.stream(videoURL, { 
+            discordPlayerCompatibility: true 
+        });
 
-        // Streams ko direct flexible filter de diya
-        const videoStream = ytdl(videoURL, { filter: 'videoonly', quality: 'highestvideo', requestOptions });
-        const audioStream = ytdl(videoURL, { filter: 'audioonly', quality: 'highestaudio', requestOptions });
+        // Piping direct to browser
+        stream.stream.pipe(res);
 
-        ffmpeg()
-            .input(videoStream)
-            .input(audioStream)
-            .outputFormat('mp4')
-            .outputOptions('-c:v copy')
-            .outputOptions('-c:a aac')
-            .outputOptions('-movflags frag_keyframe+empty_moov') 
-            .outputOptions('-strict experimental')
-            .on('error', (err) => {
-                console.error('Merge mein masla aa gaya:', err.message);
-                if (!res.headersSent) res.status(500).send("Processing failed.");
-            })
-            .on('end', () => {
-                console.log('Premium Download Complete! 🔥');
-            })
-            .pipe(res, { end: true });
+        console.log('Stealth Download Complete! 🔥');
 
     } catch (error) {
-        console.error("YTDL Error:", error.message);
+        console.error("Engine Error:", error.message);
         res.status(500).send("Server mein short circuit ho gaya.");
     }
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`Dude's Clean Downloader Engine running on port ${PORT} 🚀`);
+    console.log(`Dude's Stealth Engine running on port ${PORT} 🚀`);
 });
