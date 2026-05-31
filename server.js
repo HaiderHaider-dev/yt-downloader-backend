@@ -1,11 +1,10 @@
 const express = require('express');
 const cors = require('cors');
-const play = require('play-dl');
+const youtubedl = require('youtube-dl-exec');
 
 const app = express();
 app.use(cors());
 
-// The Stealth API Endpoint
 app.get('/api/download', async (req, res) => {
     const videoURL = req.query.url;
 
@@ -14,32 +13,38 @@ app.get('/api/download', async (req, res) => {
     }
 
     try {
-        console.log(`Stealth Extraction Started for: ${videoURL}`);
+        console.log(`yt-dlp Extraction Started for: ${videoURL}`);
 
-        // play-dl bypasses bot checks to get real video info
-        const info = await play.video_info(videoURL);
-        const title = info.video_details.title.replace(/[^\w\s]/gi, ''); 
+        // Extracting info safely using yt-dlp
+        const info = await youtubedl(videoURL, {
+            dumpSingleJson: true,
+            noCheckCertificates: true,
+            noWarnings: true,
+            addHeader: ['referer:youtube.com', 'user-agent:Mozilla/5.0']
+        });
+
+        const title = info.title.replace(/[^\w\s]/gi, ''); 
 
         res.header('Content-Disposition', `attachment; filename="${title}_Premium.mp4"`);
         res.header('Content-Type', 'video/mp4');
 
-        // Fetching the unblockable stream (usually 720p with merged audio directly!)
-        const stream = await play.stream(videoURL, { 
-            discordPlayerCompatibility: true 
+        // Streaming directly with the best format bypassing bot checks
+        const stream = youtubedl.exec(videoURL, {
+            format: 'best',
+            o: '-' // Directs output to stdout instead of saving a file
         });
 
-        // Piping direct to browser
-        stream.stream.pipe(res);
+        stream.stdout.pipe(res);
 
-        console.log('Stealth Download Complete! 🔥');
+        console.log('Heavy Duty Download Complete! 🔥');
 
     } catch (error) {
-        console.error("Engine Error:", error.message);
+        console.error("yt-dlp Error:", error.message);
         res.status(500).send("Server mein short circuit ho gaya.");
     }
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`Dude's Stealth Engine running on port ${PORT} 🚀`);
+    console.log(`Dude's Heavy Duty Engine running on port ${PORT} 🚀`);
 });
