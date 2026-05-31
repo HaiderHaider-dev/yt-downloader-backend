@@ -5,7 +5,13 @@ const axios = require('axios');
 const app = express();
 app.use(cors());
 
-// Naya endpoint jo UI ko sari qualities ke links bhejega
+// 🧠 Smart Filter: YouTube link se sirf ID nikalne wala function
+function extractVideoId(url) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+}
+
 app.get('/api/extract', async (req, res) => {
     const videoURL = req.query.url;
 
@@ -13,48 +19,37 @@ app.get('/api/extract', async (req, res) => {
         return res.status(400).json({ error: "Arey bhai, pehle sahi link toh daal!" });
     }
 
-    try {
-        console.log(`Extracting data via RapidAPI for: ${videoURL}`);
+    const videoId = extractVideoId(videoURL);
+    if (!videoId) {
+        return res.status(400).json({ error: "Link format theek nahi hai." });
+    }
 
-        // Yeh ek standard RapidAPI configuration hai. 
-        // Tujhe RapidAPI par "Youtube Video Download" API subscribe karni hogi (Free wali)
+    try {
+        console.log(`YTStream API se data aa raha hai ID ke liye: ${videoId}`);
+
         const options = {
             method: 'GET',
-            url: 'https://youtube-video-download-info.p.rapidapi.com/dl', 
-            params: { url: videoURL },
+            url: 'https://ytstream-download-youtube-videos.p.rapidapi.com/dl', 
+            params: { id: videoId }, // Yahan humne smart ID filter laga diya
             headers: {
-                // Tera key jo tune .env mein banaya tha
                 'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || 'c9f9a1f885mshbf71d970f126a2fp1db3d1jsna707efbe30a8',
-                'X-RapidAPI-Host': 'youtube-video-download-info.p.rapidapi.com'
+                'X-RapidAPI-Host': 'ytstream-download-youtube-videos.p.rapidapi.com' // Naya Host
             }
         };
 
         const response = await axios.request(options);
-        const data = response.data;
-
-        // Frontend ke in premium buttons ke liye data structure kar rahe hain
-        const result = {
-            title: data.title || "Premium_Video",
-            thumbnail: data.thumb || "",
-            links: {
-                supreme_1080p: data.link['1080p'] ? data.link['1080p'][0] : null,
-                hd_720p: data.link['720p'] ? data.link['720p'][0] : null,
-                standard_360p: data.link['360p'] ? data.link['360p'][0] : null,
-                audio_mp3: data.link['mp3'] ? data.link['mp3'][0] : null
-            }
-        };
-
-        // UI ko JSON bhej do taake buttons mein link lag jayein
-        res.json(result);
-        console.log('Extraction Complete! 🔥');
+        
+        // Jo bhi format data API degi, hum seedha browser ko bhej denge taake tu check kar sake
+        res.json(response.data);
+        console.log('YTStream Extraction Complete! 🔥');
 
     } catch (error) {
         console.error("API Error:", error.message);
-        res.status(500).json({ error: "API connection fail ho gayi. RapidAPI dashboard check kar!" });
+        res.status(500).json({ error: "YTStream se connection toot gaya." });
     }
 });
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-    console.log(`Dude's God-Mode API Proxy running on port ${PORT} 🚀`);
+    console.log(`Dude's YTStream API Proxy running on port ${PORT} 🚀`);
 });
