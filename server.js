@@ -1,27 +1,15 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
 const ytdl = require('@distube/ytdl-core');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 
-// FFmpeg ka path
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 const app = express();
 app.use(cors());
 
-// 🔥 THE MAGIC MASK: Cookie Agent Setup 🔥
-let agent;
-try {
-    const cookieData = JSON.parse(fs.readFileSync('./cookies.json'));
-    agent = ytdl.createAgent(cookieData);
-    console.log("Awwwards-Level Cookie Agent Loaded! 🍪");
-} catch (error) {
-    console.log("Warning: cookies.json nahi mila! Server bina mask ke jayega.");
-}
-
-// The Ultimate Downloader API Endpoint
+// The Clean API Endpoint
 app.get('/api/download', async (req, res) => {
     const videoURL = req.query.url;
 
@@ -30,8 +18,16 @@ app.get('/api/download', async (req, res) => {
     }
 
     try {
-        // Agent ko requests ke sath pass kar rahe hain taake 429 bypass ho
-        const info = await ytdl.getInfo(videoURL, { agent });
+        // 🔥 NAYA HACK: Exact Chrome Headers bina kisi Cookie (Agent) ke!
+        const requestOptions = {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+        };
+
+        const info = await ytdl.getInfo(videoURL, { requestOptions });
         const title = info.videoDetails.title.replace(/[^\w\s]/gi, ''); 
 
         res.header('Content-Disposition', `attachment; filename="${title}_1080p.mp4"`);
@@ -39,9 +35,9 @@ app.get('/api/download', async (req, res) => {
 
         console.log(`Downloading started for: ${title}`);
 
-        // Streams mein bhi agent laga diya
-        const videoStream = ytdl(videoURL, { quality: 'highestvideo', agent });
-        const audioStream = ytdl(videoURL, { quality: 'highestaudio', agent });
+        // Streams ko direct flexible filter de diya
+        const videoStream = ytdl(videoURL, { filter: 'videoonly', quality: 'highestvideo', requestOptions });
+        const audioStream = ytdl(videoURL, { filter: 'audioonly', quality: 'highestaudio', requestOptions });
 
         ffmpeg()
             .input(videoStream)
@@ -68,5 +64,5 @@ app.get('/api/download', async (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`Dude's Downloader Engine running on port ${PORT} 🚀`);
+    console.log(`Dude's Clean Downloader Engine running on port ${PORT} 🚀`);
 });
